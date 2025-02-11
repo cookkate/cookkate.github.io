@@ -90,9 +90,27 @@
             }
         }
 
+        // Check if localStorage is available
+        function isLocalStorageAvailable() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        }
+
         window.onload = function() {
-            if (!localStorage.getItem('scriptUrl')) {
-                configureScriptUrl();
+            if (isLocalStorageAvailable()) {
+                const savedUrl = localStorage.getItem('scriptUrl');
+                if (!savedUrl) {
+                    configureScriptUrl();
+                } else {
+                    debug('Script URL loaded from storage');
+                }
+            } else {
+                debug('LocalStorage not available');
             }
         };
 
@@ -125,6 +143,9 @@
                 const result = await response.json();
                 if (result.status === 'success') {
                     debug('Codes exported successfully');
+                    // Clear the list after successful export
+                    scannedCodes.clear();
+                    document.getElementById('codeList').innerHTML = '';
                 } else {
                     throw new Error('Export failed');
                 }
