@@ -91,15 +91,12 @@
                     target: document.querySelector("#interactive"),
                     constraints: {
                         facingMode: "environment",
-                        width: 100,
+                        width: 200,
                         height: 300
                     },
                 },
                 decoder: {
-                    readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader"],
-                    debug: {
-                        drawBoundingBox: true,
-                    }
+                    readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader"]
                 },
                 debug: false,
                 frequency: 1
