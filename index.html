@@ -86,7 +86,8 @@
                 return;
             }
             try {
-                codeReader = new ZXing.BrowserMultiFormatReader();
+                // Create HTML5 Barcode reader instance
+                codeReader = new ZXing.BrowserQRCodeReader();
                 status.textContent = 'Ready to scan';
             } catch (err) {
                 status.textContent = 'Error initializing scanner: ' + err.message;
@@ -157,10 +158,10 @@
                         debug(`Still scanning... (${scanAttempts} attempts)`);
                     }
                     
-                    const result = await codeReader.decodeOnceFromVideoElement(video);
-                    if (result && result.text) {
-                        debug(`Found barcode: ${result.text}`);
-                        status.textContent = 'Found barcode: ' + result.text;
+                    const result = await codeReader.decodeFromVideoDevice(null, video, (result, err) => {
+                        if (result) {
+                            debug(`Found barcode: ${result.text}`);
+                            status.textContent = 'Found barcode: ' + result.text;
                         
                         if (scannedCodes.has(result.text)) {
                             debug('Duplicate barcode detected');
@@ -172,10 +173,12 @@
                             addToList(result.text);
                         }
                     }
+                        if (err) {
+                            debug('Error: ' + err.message);
+                        }
+                    });
                 } catch (err) {
-                    if (err.message && !err.message.includes('No MultiFormat Readers')) {
-                        debug('Error: ' + err.message);
-                    }
+                    debug('Scanning error: ' + err.message);
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
