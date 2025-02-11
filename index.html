@@ -102,14 +102,6 @@
                 if (result && result.codeResult) {
                     const code = result.codeResult.code;
                     debug('Detected barcode: ' + code);
-                    
-                    if (scannedCodes.has(code)) {
-                        debug('Duplicate barcode');
-                    } else {
-                        scannedCodes.add(code);
-                        addToList(code);
-                        debug('New barcode added');
-                    }
                 }
             });
 
@@ -165,7 +157,7 @@
             canvas.height = video.videoHeight;
             
             // Draw the current video frame
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            //context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             // Stop live scanning temporarily
             Quagga.pause();
