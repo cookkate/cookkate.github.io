@@ -22,6 +22,11 @@
             margin: 10px 0;
         }
 
+        .export-button {
+            background: #34A853;
+            margin-left: 10px;
+        }
+
         #interactive.viewport {
             width: 100%;
             height: 300px;
@@ -64,6 +69,8 @@
 <body>
     <button onclick="toggleScanner()" id="scanButton">Start Scanning</button>
     <button onclick="captureFrame()" id="captureButton" style="display: none;">Capture Frame</button>
+    <button onclick="exportToSheets()" id="exportButton" class="export-button">Export to Sheets</button>
+    <button onclick="configureScriptUrl()" id="configButton">Configure Script URL</button>
     <div id="debug"></div>
     <div id="interactive" class="viewport"></div>
     <canvas id="snapshot" style="display: none;"></canvas>
@@ -75,10 +82,56 @@
         const scannedCodes = new Set();
         const scanButton = document.getElementById('scanButton');
 
+        function configureScriptUrl() {
+            const url = prompt('Enter your Google Apps Script URL:');
+            if (url) {
+                localStorage.setItem('scriptUrl', url);
+                debug('Script URL configured');
+            }
+        }
+
+        window.onload = function() {
+            if (!localStorage.getItem('scriptUrl')) {
+                configureScriptUrl();
+            }
+        };
+
         function debug(msg) {
             const debugDiv = document.getElementById('debug');
             const time = new Date().toLocaleTimeString();
             debugDiv.innerHTML = `${time}: ${msg}<br>` + debugDiv.innerHTML;
+        }
+
+        async function exportToSheets() {
+            if (!scannedCodes.size) {
+                debug('No codes to export');
+                return;
+            }
+
+            const scriptUrl = localStorage.getItem('scriptUrl');
+            if (!scriptUrl) {
+                debug('No script URL configured');
+                configureScriptUrl();
+                return;
+            }
+
+            try {
+                const response = await fetch(scriptUrl, {
+                    method: 'POST',
+                    body: JSON.stringify(Array.from(scannedCodes)),
+                    mode: 'cors'
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    debug('Codes exported successfully');
+                } else {
+                    throw new Error('Export failed');
+                }
+            } catch (err) {
+                debug('Export error: ' + err.message);
+                localStorage.removeItem('scriptUrl');
+            }
         }
 
         function initQuagga() {
