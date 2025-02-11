@@ -56,8 +56,10 @@
 </head>
 <body>
     <button onclick="toggleScanner()" id="scanButton">Start Scanning</button>
+    <button onclick="captureFrame()" id="captureButton" style="display: none;">Capture Frame</button>
     <div id="debug"></div>
     <div id="interactive" class="viewport"></div>
+    <canvas id="snapshot" style="display: none;"></canvas>
     <div class="code-list" id="codeList"></div>
 
     <script>
@@ -84,7 +86,8 @@
                 decoder: {
                     readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader"]
                 },
-                debug: true
+                debug: false,
+                frequency: 1
             }, function(err) {
                 if (err) {
                     debug('Quagga initialization error: ' + err);
@@ -92,6 +95,8 @@
                 }
                 debug('Quagga initialized successfully');
                 Quagga.start();
+                document.getElementById('captureButton').style.display = 'inline-block';
+            });
             });
 
             Quagga.onDetected(function(result) {
@@ -140,6 +145,7 @@
                 Quagga.stop();
                 scanning = false;
                 scanButton.textContent = 'Start Scanning';
+                document.getElementById('captureButton').style.display = 'none';
                 debug('Scanner stopped');
             } else {
                 initQuagga();
@@ -147,6 +153,52 @@
                 scanButton.textContent = 'Stop Scanning';
                 debug('Scanner started');
             }
+        }
+
+        function captureFrame() {
+            debug('Capturing frame...');
+            const video = document.querySelector('#interactive video');
+            const canvas = document.getElementById('snapshot');
+            const context = canvas.getContext('2d');
+            
+            // Set canvas size to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw the current video frame
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Stop live scanning temporarily
+            Quagga.pause();
+            
+            // Try to decode the captured frame
+            Quagga.decodeSingle({
+                src: canvas.toDataURL(),
+                numOfWorkers: 0,  // Use main thread
+                inputStream: {
+                    size: 800  // Max size of the image
+                },
+                decoder: {
+                    readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader"]
+                }
+            }, function(result) {
+                if (result && result.codeResult) {
+                    const code = result.codeResult.code;
+                    debug('Captured barcode: ' + code);
+                    
+                    if (scannedCodes.has(code)) {
+                        debug('Duplicate barcode');
+                    } else {
+                        scannedCodes.add(code);
+                        addToList(code);
+                        debug('New barcode added');
+                    }
+                } else {
+                    debug('No barcode found in captured frame');
+                }
+                // Resume live scanning
+                Quagga.start();
+            });
         }
 
         function addToList(code) {
