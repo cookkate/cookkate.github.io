@@ -3,18 +3,8 @@
 <head>
     <title>Simple Barcode Scanner</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
     <style>
-        #debug {
-            background: #000;
-            color: #0f0;
-            font-family: monospace;
-            padding: 10px;
-            margin: 10px 0;
-            max-height: 100px;
-            overflow-y: auto;
-            border-radius: 5px;
-        }
         body { 
             max-width: 600px; 
             margin: 20px auto; 
@@ -30,9 +20,22 @@
             cursor: pointer;
             margin: 10px 0;
         }
-        #video {
+        #interactive.viewport {
             width: 100%;
-            background: #f0f0f0;
+            height: 300px;
+        }
+        #interactive.viewport > video {
+            max-width: 100%;
+            width: 100%;
+        }
+        #debug {
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 100px;
+            overflow-y: auto;
             border-radius: 5px;
         }
         .code-list {
@@ -46,164 +49,41 @@
             margin: 5px 0;
             border-radius: 5px;
         }
-        .warning {
-            background: #FFE4E1;
-            color: #D83232;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
+        .drawingBuffer {
             display: none;
-        }
-        #status {
-            color: #666;
-            margin: 10px 0;
         }
     </style>
 </head>
 <body>
     <button onclick="toggleScanner()" id="scanButton">Start Scanning</button>
-    <div id="status">Ready to scan</div>
     <div id="debug"></div>
-    <video id="video"></video>
-    <div id="duplicate" class="warning">Duplicate barcode detected!</div>
+    <div id="interactive" class="viewport"></div>
     <div class="code-list" id="codeList"></div>
 
     <script>
         let scanning = false;
-        let scannedCodes = new Set();
-        const video = document.getElementById('video');
-        const codeList = document.getElementById('codeList');
-        const duplicate = document.getElementById('duplicate');
+        const scannedCodes = new Set();
         const scanButton = document.getElementById('scanButton');
-        const status = document.getElementById('status');
-        let stream = null;
-        let codeReader = null;
-
-        // Wait for ZXing to be ready
-        window.addEventListener('load', function() {
-            if (typeof ZXing === 'undefined') {
-                status.textContent = 'Error: Barcode scanning library failed to load';
-                return;
-            }
-            try {
-                // Create HTML5 Barcode reader instance
-                codeReader = new ZXing.BrowserQRCodeReader();
-                status.textContent = 'Ready to scan';
-            } catch (err) {
-                status.textContent = 'Error initializing scanner: ' + err.message;
-            }
-        });
-
-        async function toggleScanner() {
-            if (!codeReader) {
-                status.textContent = 'Scanner not initialized. Please refresh the page.';
-                return;
-            }
-
-            if (scanning) {
-                stopScanning();
-            } else {
-                startScanning();
-            }
-        }
-
-        async function startScanning() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                });
-                video.srcObject = stream;
-                video.style.display = 'block';
-                await video.play();
-                
-                scanning = true;
-                scanButton.textContent = 'Stop Scanning';
-                status.textContent = 'Scanning...';
-                
-                scanCodes();
-            } catch (err) {
-                status.textContent = 'Camera error: ' + err.message;
-                console.error('Camera error:', err);
-            }
-        }
-
-        function stopScanning() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            scanning = false;
-            scanButton.textContent = 'Start Scanning';
-            video.style.display = 'none';
-            status.textContent = 'Ready to scan';
-        }
-
+        
         function debug(msg) {
             const debugDiv = document.getElementById('debug');
             const time = new Date().toLocaleTimeString();
             debugDiv.innerHTML = `${time}: ${msg}<br>` + debugDiv.innerHTML;
         }
 
-        async function scanCodes() {
-            let scanAttempts = 0;
-            debug('Starting scan loop');
-            
-            while (scanning) {
-                try {
-                    scanAttempts++;
-                    if (scanAttempts % 10 === 0) {
-                        debug(`Still scanning... (${scanAttempts} attempts)`);
-                    }
-                    
-                    const result = await codeReader.decodeFromVideoDevice(null, video, (result, err) => {
-                        if (result) {
-                            debug(`Found barcode: ${result.text}`);
-                            status.textContent = 'Found barcode: ' + result.text;
-                        
-                        if (scannedCodes.has(result.text)) {
-                            debug('Duplicate barcode detected');
-                            duplicate.style.display = 'block';
-                            setTimeout(() => duplicate.style.display = 'none', 2000);
-                        } else {
-                            debug('New barcode added');
-                            scannedCodes.add(result.text);
-                            addToList(result.text);
-                        }
-                    }
-                        if (err) {
-                            debug('Error: ' + err.message);
-                        }
-                    });
-                } catch (err) {
-                    debug('Scanning error: ' + err.message);
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-            }
-        }
-
-        function addToList(code) {
-            const div = document.createElement('div');
-            div.className = 'code-item';
-            div.innerHTML = `
-                <span>${code}</span>
-                <button onclick="removeCode('${code}')">✕</button>
-            `;
-            codeList.appendChild(div);
-        }
-
-        function removeCode(code) {
-            scannedCodes.delete(code);
-            codeList.querySelectorAll('.code-item').forEach(item => {
-                if (item.querySelector('span').textContent === code) {
-                    item.remove();
-                }
-            });
-        }
-
-        video.style.display = 'none';
-    </script>
-</body>
-</html>
+        function initQuagga() {
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector("#interactive"),
+                    constraints: {
+                        facingMode: "environment"
+                    },
+                },
+                decoder: {
+                    readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader"]
+                },
+                debug: true
+            }, function(err) {
+                if (err) {
