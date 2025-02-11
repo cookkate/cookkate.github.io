@@ -87,3 +87,86 @@
                 debug: true
             }, function(err) {
                 if (err) {
+                    debug('Quagga initialization error: ' + err);
+                    return;
+                }
+                debug('Quagga initialized successfully');
+                Quagga.start();
+            });
+
+            Quagga.onDetected(function(result) {
+                if (result && result.codeResult) {
+                    const code = result.codeResult.code;
+                    debug('Detected barcode: ' + code);
+                    
+                    if (scannedCodes.has(code)) {
+                        debug('Duplicate barcode');
+                    } else {
+                        scannedCodes.add(code);
+                        addToList(code);
+                        debug('New barcode added');
+                    }
+                }
+            });
+
+            Quagga.onProcessed(function(result) {
+                const drawingCtx = Quagga.canvas.ctx.overlay;
+                const drawingCanvas = Quagga.canvas.dom.overlay;
+
+                if (result) {
+                    if (result.boxes) {
+                        drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+                        result.boxes.forEach(function(box) {
+                            if (box !== result.box) {
+                                drawingCtx.strokeStyle = "green";
+                                drawingCtx.strokeRect(box.x, box.y, box.width, box.height);
+                            }
+                        });
+                    }
+
+                    if (result.box) {
+                        drawingCtx.strokeStyle = "blue";
+                        drawingCtx.strokeRect(
+                            result.box.x, result.box.y,
+                            result.box.width, result.box.height
+                        );
+                    }
+                }
+            });
+        }
+
+        function toggleScanner() {
+            if (scanning) {
+                Quagga.stop();
+                scanning = false;
+                scanButton.textContent = 'Start Scanning';
+                debug('Scanner stopped');
+            } else {
+                initQuagga();
+                scanning = true;
+                scanButton.textContent = 'Stop Scanning';
+                debug('Scanner started');
+            }
+        }
+
+        function addToList(code) {
+            const div = document.createElement('div');
+            div.className = 'code-item';
+            div.innerHTML = `
+                <span>${code}</span>
+                <button onclick="removeCode('${code}')">✕</button>
+            `;
+            document.getElementById('codeList').appendChild(div);
+        }
+
+        function removeCode(code) {
+            scannedCodes.delete(code);
+            document.querySelectorAll('.code-item').forEach(item => {
+                if (item.querySelector('span').textContent === code) {
+                    item.remove();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
