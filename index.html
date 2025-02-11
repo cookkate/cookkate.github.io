@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
+        #debug {
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 100px;
+            overflow-y: auto;
+            border-radius: 5px;
+        }
         body { 
             max-width: 600px; 
             margin: 20px auto; 
@@ -53,6 +63,7 @@
 <body>
     <button onclick="toggleScanner()" id="scanButton">Start Scanning</button>
     <div id="status">Ready to scan</div>
+    <div id="debug"></div>
     <video id="video"></video>
     <div id="duplicate" class="warning">Duplicate barcode detected!</div>
     <div class="code-list" id="codeList"></div>
@@ -129,23 +140,42 @@
             status.textContent = 'Ready to scan';
         }
 
+        function debug(msg) {
+            const debugDiv = document.getElementById('debug');
+            const time = new Date().toLocaleTimeString();
+            debugDiv.innerHTML = `${time}: ${msg}<br>` + debugDiv.innerHTML;
+        }
+
         async function scanCodes() {
+            let scanAttempts = 0;
+            debug('Starting scan loop');
+            
             while (scanning) {
                 try {
+                    scanAttempts++;
+                    if (scanAttempts % 10 === 0) {
+                        debug(`Still scanning... (${scanAttempts} attempts)`);
+                    }
+                    
                     const result = await codeReader.decodeOnceFromVideoElement(video);
                     if (result && result.text) {
+                        debug(`Found barcode: ${result.text}`);
                         status.textContent = 'Found barcode: ' + result.text;
                         
                         if (scannedCodes.has(result.text)) {
+                            debug('Duplicate barcode detected');
                             duplicate.style.display = 'block';
                             setTimeout(() => duplicate.style.display = 'none', 2000);
                         } else {
+                            debug('New barcode added');
                             scannedCodes.add(result.text);
                             addToList(result.text);
                         }
                     }
                 } catch (err) {
-                    // Normal when no barcode is found
+                    if (err.message && !err.message.includes('No MultiFormat Readers')) {
+                        debug('Error: ' + err.message);
+                    }
                     await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
