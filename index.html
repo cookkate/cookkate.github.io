@@ -44,10 +44,15 @@
             margin: 10px 0;
             display: none;
         }
+        #status {
+            color: #666;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <button onclick="toggleScanner()" id="scanButton">Start Scanning</button>
+    <div id="status">Ready to scan</div>
     <video id="video"></video>
     <div id="duplicate" class="warning">Duplicate barcode detected!</div>
     <div class="code-list" id="codeList"></div>
@@ -59,40 +64,78 @@
         const codeList = document.getElementById('codeList');
         const duplicate = document.getElementById('duplicate');
         const scanButton = document.getElementById('scanButton');
+        const status = document.getElementById('status');
         let stream = null;
+        let codeReader = null;
+
+        // Wait for ZXing to be ready
+        window.addEventListener('load', function() {
+            if (typeof ZXing === 'undefined') {
+                status.textContent = 'Error: Barcode scanning library failed to load';
+                return;
+            }
+            try {
+                codeReader = new ZXing.BrowserMultiFormatReader();
+                status.textContent = 'Ready to scan';
+            } catch (err) {
+                status.textContent = 'Error initializing scanner: ' + err.message;
+            }
+        });
 
         async function toggleScanner() {
+            if (!codeReader) {
+                status.textContent = 'Scanner not initialized. Please refresh the page.';
+                return;
+            }
+
             if (scanning) {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-                scanning = false;
-                scanButton.textContent = 'Start Scanning';
-                video.style.display = 'none';
+                stopScanning();
             } else {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'environment' } 
-                    });
-                    video.srcObject = stream;
-                    video.style.display = 'block';
-                    video.play();
-                    scanning = true;
-                    scanButton.textContent = 'Stop Scanning';
-                    scanCodes();
-                } catch (err) {
-                    console.error('Error:', err);
-                    alert('Could not access camera');
-                }
+                startScanning();
             }
         }
 
+        async function startScanning() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                await video.play();
+                
+                scanning = true;
+                scanButton.textContent = 'Stop Scanning';
+                status.textContent = 'Scanning...';
+                
+                scanCodes();
+            } catch (err) {
+                status.textContent = 'Camera error: ' + err.message;
+                console.error('Camera error:', err);
+            }
+        }
+
+        function stopScanning() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            scanning = false;
+            scanButton.textContent = 'Start Scanning';
+            video.style.display = 'none';
+            status.textContent = 'Ready to scan';
+        }
+
         async function scanCodes() {
-            const codeReader = new ZXing.BrowserMultiFormatReader();
             while (scanning) {
                 try {
                     const result = await codeReader.decodeOnceFromVideoElement(video);
                     if (result && result.text) {
+                        status.textContent = 'Found barcode: ' + result.text;
+                        
                         if (scannedCodes.has(result.text)) {
                             duplicate.style.display = 'block';
                             setTimeout(() => duplicate.style.display = 'none', 2000);
@@ -102,7 +145,8 @@
                         }
                     }
                 } catch (err) {
-                    // Ignore errors (they happen when no barcode is detected)
+                    // Normal when no barcode is found
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
         }
