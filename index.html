@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Simple Barcode Scanner</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -62,7 +61,6 @@
         }
     </style>
 </head>
-
 <body>
     <button onclick="toggleScanner()" id="scanButton">Start Scanning</button>
     <button onclick="captureFrame()" id="captureButton" style="display: none;">Capture Frame</button>
@@ -91,8 +89,9 @@
                     target: document.querySelector("#interactive"),
                     constraints: {
                         facingMode: "environment",
-                        width: 200,
-                        height: 300
+                        width: 1280,
+                        height: 720,
+                        aspectRatio: { min: 1, max: 2 }
                     },
                 },
                 decoder: {
@@ -100,7 +99,7 @@
                 },
                 debug: false,
                 frequency: 1
-            }, function (err) {
+            }, function(err) {
                 if (err) {
                     debug('Quagga initialization error: ' + err);
                     return;
@@ -110,7 +109,7 @@
                 document.getElementById('captureButton').style.display = 'inline-block';
             });
 
-            Quagga.onDetected(function (result) {
+            Quagga.onDetected(function(result) {
                 if (result && result.codeResult) {
                     const code = result.codeResult.code;
                     lastDetectedCode = code;
@@ -118,14 +117,14 @@
                 }
             });
 
-            Quagga.onProcessed(function (result) {
+            Quagga.onProcessed(function(result) {
                 const drawingCtx = Quagga.canvas.ctx.overlay;
                 const drawingCanvas = Quagga.canvas.dom.overlay;
 
                 if (result) {
                     if (result.boxes) {
                         drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-                        result.boxes.forEach(function (box) {
+                        result.boxes.forEach(function(box) {
                             if (box !== result.box) {
                                 drawingCtx.strokeStyle = "green";
                                 drawingCtx.strokeRect(box.x, box.y, box.width, box.height);
@@ -166,7 +165,7 @@
             }
 
             debug('Using last detected code: ' + lastDetectedCode);
-
+            
             if (scannedCodes.has(lastDetectedCode)) {
                 debug('Duplicate barcode');
             } else {
@@ -196,5 +195,4 @@
         }
     </script>
 </body>
-
 </html>
