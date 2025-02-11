@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Barcode Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.19.2/zxing.min.js"></script>
+    <style>
+        body { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            padding: 0 20px; 
+            font-family: system-ui, sans-serif;
+        }
+        button {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        #video {
+            width: 100%;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .code-list {
+            margin-top: 20px;
+        }
+        .code-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f0f0f0;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .warning {
+            background: #FFE4E1;
+            color: #D83232;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="toggleScanner()" id="scanButton">Start Scanning</button>
+    <video id="video"></video>
+    <div id="duplicate" class="warning">Duplicate barcode detected!</div>
+    <div class="code-list" id="codeList"></div>
+
+    <script>
+        let scanning = false;
+        let scannedCodes = new Set();
+        const video = document.getElementById('video');
+        const codeList = document.getElementById('codeList');
+        const duplicate = document.getElementById('duplicate');
+        const scanButton = document.getElementById('scanButton');
+        let stream = null;
+
+        async function toggleScanner() {
+            if (scanning) {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                scanning = false;
+                scanButton.textContent = 'Start Scanning';
+                video.style.display = 'none';
+            } else {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' } 
+                    });
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                    video.play();
+                    scanning = true;
+                    scanButton.textContent = 'Stop Scanning';
+                    scanCodes();
+                } catch (err) {
+                    console.error('Error:', err);
+                    alert('Could not access camera');
+                }
+            }
+        }
+
+        async function scanCodes() {
+            const codeReader = new ZXing.BrowserMultiFormatReader();
+            while (scanning) {
+                try {
+                    const result = await codeReader.decodeOnceFromVideoElement(video);
+                    if (result && result.text) {
+                        if (scannedCodes.has(result.text)) {
+                            duplicate.style.display = 'block';
+                            setTimeout(() => duplicate.style.display = 'none', 2000);
+                        } else {
+                            scannedCodes.add(result.text);
+                            addToList(result.text);
+                        }
+                    }
+                } catch (err) {
+                    // Ignore errors (they happen when no barcode is detected)
+                }
+            }
+        }
+
+        function addToList(code) {
+            const div = document.createElement('div');
+            div.className = 'code-item';
+            div.innerHTML = `
+                <span>${code}</span>
+                <button onclick="removeCode('${code}')">✕</button>
+            `;
+            codeList.appendChild(div);
+        }
+
+        function removeCode(code) {
+            scannedCodes.delete(code);
+            codeList.querySelectorAll('.code-item').forEach(item => {
+                if (item.querySelector('span').textContent === code) {
+                    item.remove();
+                }
+            });
+        }
+
+        video.style.display = 'none';
+    </script>
+</body>
+</html>
